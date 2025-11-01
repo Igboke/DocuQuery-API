@@ -2,10 +2,9 @@ import os
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker,AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
+from .config import settings
 
-DATABASE_URL = os.getenv("DATABASE_URL","sqlite+aiosqlite:///./docuquery.db")
-
-engine = create_async_engine(DATABASE_URL)
+engine = create_async_engine(settings.DATABASE_URL)
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
