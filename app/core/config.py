@@ -15,4 +15,6 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = os.getenv("DATABASE_URL","sqlite+aiosqlite:///./docuquery.db")
 
+    TEST_DATABASE_URL:str = os.getenv("TEST_DATABASE_URL","sqlite+aiosqlite:///./docuquery.db")
+
 settings = Settings()
