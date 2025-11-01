@@ -9,8 +9,8 @@ class Settings(BaseSettings):
 
     ALLOWED_FILE_EXTENSIONS: list[str] = ["zip"]
 
-    UPLOAD_DIRECTORY = "./uploads"
-    
+    UPLOAD_DIRECTORY:str = "./uploads"
+
     os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
 
     DATABASE_URL: str = os.getenv("DATABASE_URL","sqlite+aiosqlite:///./docuquery.db")
