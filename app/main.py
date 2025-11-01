@@ -3,6 +3,7 @@ Creation Factory file
 """
 
 from fastapi import APIRouter, FastAPI
+from app.core.logging_config import setup_logging
 from app.api import health_check
 from app.api.v1 import documents as documents_v1
 
@@ -10,7 +11,8 @@ def create_app()->FastAPI:
     """
     Create app flow
     """
-
+    setup_logging()
+    
     app = FastAPI(
         title="DocuQuery",
         description="RAG",
