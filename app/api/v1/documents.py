@@ -1,3 +1,4 @@
+import uuid
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,5 +42,29 @@ async def upload_documents(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while processing the file: {e}"
         ) from e
+    
+    return DocumentJob(job_id=document.id, filename=document.filename, status=document.status)
+
+@router.get(
+    "/documents/{job_id}/status",
+    response_model=DocumentJob,
+    summary="Get ingestion job status"
+)
+async def get_job_status(
+    job_id: uuid.UUID,
+    session: AsyncSession = Depends(get_uow)
+):
+    """
+    Retrieves the current status of a document processing job.
+    """
+    repo = DocumentRepository(session)
+
+    document = await repo.get_by_id(job_id)
+
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found."
+        )
     
     return DocumentJob(job_id=document.id, filename=document.filename, status=document.status)
