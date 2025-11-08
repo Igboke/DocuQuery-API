@@ -1,5 +1,6 @@
 import os
-from pydantic_settings import BaseSettings , SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     """
@@ -9,12 +10,17 @@ class Settings(BaseSettings):
 
     ALLOWED_FILE_EXTENSIONS: list[str] = ["zip"]
 
-    UPLOAD_DIRECTORY:str = "./uploads"
+    UPLOAD_DIRECTORY: str = "./uploads"
 
     os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
 
     DATABASE_URL: str = os.getenv("DATABASE_URL","sqlite+aiosqlite:///./docuquery.db")
 
-    TEST_DATABASE_URL:str = os.getenv("TEST_DATABASE_URL","sqlite+aiosqlite:///./docuquery.db")
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+
+    TEST_DATABASE_URL: str = os.getenv("TEST_DATABASE_URL","sqlite+aiosqlite:///./docuquery.db")
+
 
 settings = Settings()

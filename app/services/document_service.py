@@ -5,6 +5,7 @@ from fastapi import UploadFile
 from app.repositories.document_repo import DocumentRepository
 from app.models.document import Document
 from app.core.config import settings
+from app.worker import dispatch_processing_task
 
 logger = logging.getLogger(__name__)
 
@@ -44,5 +45,8 @@ class DocumentService:
         except Exception as e:
             logger.error(f"Failed to save file '{filename}'. Error: {e}",exc_info=True)
             raise
+
+        logger.info(f"Handing off document ID {document.id} to the background worker.")
+        dispatch_processing_task.delay(str(document.id))
 
         return document
