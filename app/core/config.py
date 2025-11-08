@@ -12,7 +12,12 @@ class Settings(BaseSettings):
 
     UPLOAD_DIRECTORY: str = "./uploads"
 
+    MODEL_CACHE_DIR: str = "./model_cache"
+
+    MODEL_NAME: str = "sentence-transformers/all-MiniLM-L6-v2"
+
     os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
+    os.makedirs(MODEL_CACHE_DIR, exist_ok=True)
 
     DATABASE_URL: str = os.getenv("DATABASE_URL","sqlite+aiosqlite:///./docuquery.db")
 

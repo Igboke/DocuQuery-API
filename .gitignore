@@ -207,3 +207,6 @@ marimo/_lsp/
 __marimo__/
 
 design_docs/
+
+# Model cache directory
+model_cache/
