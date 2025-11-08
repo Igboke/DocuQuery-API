@@ -1,6 +1,6 @@
 import pytest
-from typing import AsyncGenerator
-from httpx import AsyncClient
+from typing import AsyncGenerator, Generator
+from httpx import AsyncClient, Client
 from httpx._transports.asgi import ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
@@ -61,6 +61,31 @@ async def test_client(test_engine) -> AsyncGenerator[AsyncClient, None]:
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+
+    app.dependency_overrides.clear()
+
+@pytest.fixture(scope="function")
+def test_client_sync(test_engine) -> Generator[Client, None, None]:
+    """
+    A fixture that provides a SYNCHRONOUS test client for testing 'def' endpoints.
+    """
+
+    from sqlalchemy.orm import sessionmaker
+    TestingSessionLocalSync = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+    def override_get_sync_db():
+        db = TestingSessionLocalSync()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    from app.core.db_sync import get_sync_db
+    app.dependency_overrides[get_sync_db] = override_get_sync_db
+
+    from fastapi.testclient import TestClient
+    with TestClient(app) as client:
         yield client
 
     app.dependency_overrides.clear()

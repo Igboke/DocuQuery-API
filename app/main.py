@@ -6,6 +6,7 @@ from fastapi import APIRouter, FastAPI
 from app.core.logging_config import setup_logging
 from app.api import health_check
 from app.api.v1 import documents as documents_v1
+from app.api.v1 import query as query_v1
 
 def create_app()->FastAPI:
     """
@@ -19,10 +20,9 @@ def create_app()->FastAPI:
         version="1.0.0"
     )
 
-    
-
     api_router_v1 = APIRouter(prefix="/api/v1")
     api_router_v1.include_router(documents_v1.router, tags=["Documents"])
+    api_router_v1.include_router(query_v1.router, tags=["Query"])
     
     app.include_router(api_router_v1)
     app.include_router(health_check.router,prefix="/health",tags=["Health"])
