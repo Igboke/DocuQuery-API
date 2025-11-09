@@ -129,15 +129,33 @@ def unpack_zip_task(document_id: str):
         logger.info(f"[UNPACKER] Dispatched {len(ingest_tasks)} ingest jobs with a finalization callback.")
 
 @celery.task
-def finalize_processing_task(results,document_id: str):
+def finalize_processing_task(results: list, document_id: str):
     """
-    The callback task that marks a document as COMPLETED.
+    The callback task that inspects the results of all ingest tasks
+    and sets the final status for the parent Document.
     """
-    logger.info(f"[FINALIZER] All ingest jobs complete for document {document_id}. Setting status to COMPLETED.")
+    logger.info(f"[FINALIZER] All ingest jobs finished for document {document_id}. Analyzing results...")
+    
+    failed_files = []
+    for result in results:
+        if result and result.get("status") == "FAILED":
+            failed_files.append(result)
+
     with get_sync_db() as db:
         repo = DocumentRepository(db)
         document = repo.get_by_id_sync(document_id)
-        if document:
+        if not document:
+            logger.error(f"[FINALIZER] Document {document_id} not found. Cannot set final status.")
+            return
+
+        if failed_files:
+            error_messages = [f"  - {f.get('filename')}: {f.get('error', 'Unknown error')}" for f in failed_files]
+            full_error_message = f"Ingestion failed for {len(failed_files)} file(s):\n" + "\n".join(error_messages)
+            
+            logger.error(f"[FINALIZER] Job for document {document_id} failed. Details:\n{full_error_message}")
+            repo.update_status_sync(document, IngestionStatus.FAILED, full_error_message)
+        else:
+            logger.info(f"[FINALIZER] All {len(results)} files ingested successfully for document {document_id}. Setting status to COMPLETED.")
             repo.update_status_sync(document, IngestionStatus.COMPLETED)
 
 @celery.task
@@ -177,5 +195,9 @@ def ingest_file_task(document_id: str, file_content: str, original_filename: str
         
         logger.info(f"[INGESTOR] Successfully saved {len(chunks_to_create)} chunks to the database.")
 
+        return {"status": "SUCCESS", "filename": original_filename}
+
     except Exception as e:
         logger.exception(f"[INGESTOR] Failed to ingest file '{original_filename}'.", exc_info=True)
+
+        return {"status": "FAILED", "filename": original_filename, "error": str(e)}
