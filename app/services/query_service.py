@@ -1,7 +1,7 @@
 from app.schemas.query import QueryRequest, QueryResponse, Source
 from app.repositories.chunk_repository import ChunkRepository
 import logging
-from app.core.config import EMBEDDING_MODEL, GENERATIVE_MODEL
+from app.core.config import get_embedding_model, get_generative_model
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,8 @@ class QueryService:
         """
 
         logger.info(f"Embedding question: '{query.question}'")
-        question_embedding = next(EMBEDDING_MODEL.embed(query.question))
+        embedding_model = get_embedding_model()
+        question_embedding = next(embedding_model.embed(query.question))
 
         logger.info("Finding relevant chunks in the database...")
         relevant_chunks = self.chunk_repo.find_relevant_chunks_sync(question_embedding.tolist())
@@ -53,7 +54,8 @@ class QueryService:
         logger.info("Sending prompt to Gemini for generation...")
 
         try:
-            response = GENERATIVE_MODEL.generate_content(prompt)
+            generative_model = get_generative_model()
+            response = generative_model.generate_content(prompt)
             answer = response.text
         except Exception as e:
             logger.exception("Error calling Gemini API.")

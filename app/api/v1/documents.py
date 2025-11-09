@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 from app.core.database import get_uow
 from app.core.config import settings
+from app.core.security import get_api_key
 from app.repositories.document_repo import DocumentRepository
 from app.services.document_service import DocumentService
 from app.schemas.document import DocumentJob
@@ -15,7 +16,8 @@ router = APIRouter()
 @router.post("/documents/upload",
     response_model=DocumentJob,
     status_code=status.HTTP_202_ACCEPTED,
-    summary="Upload a knowledge base"
+    summary="Upload a knowledge base",
+    dependencies=[Depends(get_api_key)]
 )
 async def upload_documents(
     file: UploadFile = File(..., description="A file for the knowledge base."),

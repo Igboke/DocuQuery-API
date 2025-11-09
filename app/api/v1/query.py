@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session as SyncSession
 
+from app.core.security import get_api_key
 from app.schemas.query import QueryRequest, QueryResponse
 from app.services.query_service import QueryService
 from app.repositories.chunk_repository import ChunkRepository
@@ -12,7 +13,8 @@ router = APIRouter()
     "/query",
     response_model=QueryResponse,
     status_code=status.HTTP_200_OK,
-    summary="Ask a question"
+    summary="Ask a question",
+    dependencies=[Depends(get_api_key)]
 )
 def query_knowledgebase(
     request: QueryRequest,
