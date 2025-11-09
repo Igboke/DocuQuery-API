@@ -20,3 +20,15 @@ def get_sync_db():
         yield db
     finally:
         db.close()
+
+
+def get_sync_db_session():
+    """
+    A FastAPI dependency that provides a synchronous database session.
+    It yields the session and ensures it's closed after the request.
+    """
+    db = SessionLocalSync()
+    try:
+        yield db
+    finally:
+        db.close()

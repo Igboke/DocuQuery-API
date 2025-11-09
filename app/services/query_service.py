@@ -1,5 +1,9 @@
 from app.schemas.query import QueryRequest, QueryResponse, Source
 from app.repositories.chunk_repository import ChunkRepository
+import logging
+from app.core.config import EMBEDDING_MODEL, GENERATIVE_MODEL
+
+logger = logging.getLogger(__name__)
 
 
 class QueryService:
@@ -16,11 +20,51 @@ class QueryService:
         For now, this is a placeholder that returns a fake response.
         """
 
-        fake_answer = f"This is a placeholder answer for the question: '{query.question}'"
-        fake_sources = [
-            Source(filename="fake_document_1.md", snippet="This is the first piece of context..."),
-            Source(filename="fake_document_2.md", snippet="...and this is the second piece of context.")
-        ]
+        logger.info(f"Embedding question: '{query.question}'")
+        question_embedding = next(EMBEDDING_MODEL.embed(query.question))
+
+        logger.info("Finding relevant chunks in the database...")
+        relevant_chunks = self.chunk_repo.find_relevant_chunks_sync(question_embedding.tolist())
+
+        if not relevant_chunks:
+            return QueryResponse(
+                answer="I could not find any relevant information in the knowledge base to answer your question.",
+                sources=[]
+            )
+
+        logger.info(f"Found {len(relevant_chunks)} relevant chunks.")
+
+        context = "\n---\n".join([chunk.chunk_text for chunk in relevant_chunks])
         
-        return QueryResponse(answer=fake_answer, sources=fake_sources)
+        prompt = f"""
+        You are a helpful AI assistant for developers. Your name is DocuQuery.
+        Answer the user's question based ONLY on the following context.
+        If the context does not contain the answer, say "I'm sorry, I cannot answer this question based on the provided documents."
+
+        CONTEXT:
+        {context}
+
+        QUESTION:
+        {query.question}
+
+        ANSWER:
+        """
+                
+        logger.info("Sending prompt to Gemini for generation...")
+
+        try:
+            response = GENERATIVE_MODEL.generate_content(prompt)
+            answer = response.text
+        except Exception as e:
+            logger.exception("Error calling Gemini API.")
+            answer = f"An error occurred while generating the answer with the Gemini API: {e}"
+
+        sources = [
+            Source(
+                filename=chunk.chunk_metadata.get("source_filename", "Unknown"),
+                snippet=chunk.chunk_text
+            ) for chunk in relevant_chunks
+        ]
+
+        return QueryResponse(answer=answer, sources=sources)
     
