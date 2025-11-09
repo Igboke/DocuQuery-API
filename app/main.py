@@ -3,10 +3,13 @@ Creation Factory file
 """
 
 from fastapi import APIRouter, FastAPI
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from app.core.logging_config import setup_logging
 from app.api import health_check
 from app.api.v1 import documents as documents_v1
 from app.api.v1 import query as query_v1
+from app import limiter
 
 def create_app()->FastAPI:
     """
@@ -19,6 +22,10 @@ def create_app()->FastAPI:
         description="RAG",
         version="1.0.0"
     )
+
+    app.state.limiter = limiter
+
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     api_router_v1 = APIRouter(prefix="/api/v1")
     api_router_v1.include_router(documents_v1.router, tags=["Documents"])

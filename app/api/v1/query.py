@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Request
+from app import limiter
 from sqlalchemy.orm import Session as SyncSession
 
 from app.core.security import get_api_key
@@ -16,8 +17,10 @@ router = APIRouter()
     summary="Ask a question",
     dependencies=[Depends(get_api_key)]
 )
+@limiter.limit("5/minute")
 def query_knowledgebase(
-    request: QueryRequest,
+    request: Request,
+    query_request: QueryRequest,
     db: SyncSession = Depends(get_sync_db_session) 
 ):
     """
@@ -28,6 +31,6 @@ def query_knowledgebase(
     chunk_repo = ChunkRepository(db)
     service = QueryService(chunk_repo)
     
-    response = service.answer_question(request)
+    response = service.answer_question(query_request)
     
     return response

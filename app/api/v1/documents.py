@@ -1,7 +1,7 @@
 import uuid
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
+from fastapi import APIRouter, Depends, Request, UploadFile, File, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from app import limiter
 import logging
 from app.core.database import get_uow
 from app.core.config import settings
@@ -19,7 +19,9 @@ router = APIRouter()
     summary="Upload a knowledge base",
     dependencies=[Depends(get_api_key)]
 )
+@limiter.limit("20/minute")
 async def upload_documents(
+    request: Request,
     file: UploadFile = File(..., description="A file for the knowledge base."),
     session: AsyncSession = Depends(get_uow)
 ):

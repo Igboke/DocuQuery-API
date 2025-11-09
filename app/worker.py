@@ -14,6 +14,8 @@ from app.repositories.document_repo import DocumentRepository
 
 logger = logging.getLogger(__name__)
 
+os.environ['HF_HUB_OFFLINE'] = '1'
+
 _embedding_model = None
 
 def get_embedding_model():
