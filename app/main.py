@@ -9,6 +9,7 @@ from app.core.logging_config import setup_logging
 from app.api import health_check
 from app.api.v1 import documents as documents_v1
 from app.api.v1 import query as query_v1
+from starlette_prometheus import PrometheusMiddleware, metrics
 from app import limiter
 
 def create_app()->FastAPI:
@@ -25,6 +26,8 @@ def create_app()->FastAPI:
 
     app.state.limiter = limiter
 
+    app.add_middleware(PrometheusMiddleware)
+
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     api_router_v1 = APIRouter(prefix="/api/v1")
@@ -33,6 +36,7 @@ def create_app()->FastAPI:
     
     app.include_router(api_router_v1)
     app.include_router(health_check.router,prefix="/health",tags=["Health"])
+    app.add_route("/metrics", metrics)
 
 
     @app.get("/health")

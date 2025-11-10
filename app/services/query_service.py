@@ -1,7 +1,7 @@
 from app.schemas.query import QueryRequest, QueryResponse, Source
 from app.repositories.chunk_repository import ChunkRepository
 import logging
-from app.core.config import get_embedding_model, get_generative_model
+from app.core.config import get_embedding_model, get_generative_model, LLM_QUERY_DURATION
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,8 @@ class QueryService:
 
         try:
             generative_model = get_generative_model()
-            response = generative_model.generate_content(prompt)
+            with LLM_QUERY_DURATION.time():
+                response = generative_model.generate_content(prompt)
             answer = response.text
         except Exception as e:
             logger.exception("Error calling Gemini API.")

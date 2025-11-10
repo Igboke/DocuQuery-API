@@ -32,6 +32,7 @@ dependencies = [
     "twisted>=25.5.0",
     "google-generativeai>=0.8.5",
     "slowapi>=0.1.9",
+    "starlette-prometheus>=0.10.0",
 ]
 [project.optional-dependencies]
 test = [

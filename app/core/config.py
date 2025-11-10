@@ -1,6 +1,7 @@
 import os
 from fastembed import TextEmbedding
 import google.generativeai as genai
+from prometheus_client import Histogram
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 os.environ['HF_HUB_OFFLINE'] = '1'
@@ -64,3 +65,8 @@ def get_generative_model():
     if _generative_model is None:
         _generative_model = genai.GenerativeModel('gemini-2.5-flash')
     return _generative_model
+
+LLM_QUERY_DURATION = Histogram(
+    "llm_query_duration_seconds",
+    "Histogram of the duration of LLM API calls in seconds."
+)
