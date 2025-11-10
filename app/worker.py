@@ -181,7 +181,7 @@ def ingest_file_task(document_id: str, file_content: str, original_filename: str
             chunk = Chunk(
                 document_id=document_id,
                 chunk_text=text_chunk,
-                embedding=embeddings[i],
+                embedding=embeddings[i].tolist(),
                 chunk_metadata={
                     "source_filename": original_filename,
                     "chunk_index": i

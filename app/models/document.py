@@ -1,6 +1,7 @@
+from datetime import datetime, timezone
 import uuid
 from enum import Enum as PyEnum
-from sqlalchemy import String, TIMESTAMP, Enum, text
+from sqlalchemy import DateTime, String, TIMESTAMP, Enum, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from .base import Base
@@ -22,10 +23,10 @@ class Document(Base):
         default=IngestionStatus.PENDING
     )
     error_message: Mapped[str | None] = mapped_column(String)
-    created_at: Mapped[TIMESTAMP] = mapped_column(
-        TIMESTAMP(timezone=True), server_default=text("now()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
-    updated_at: Mapped[TIMESTAMP] = mapped_column(
-        TIMESTAMP(timezone=True), server_default=text("now()"), onupdate=text("now()")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     chunks = relationship("Chunk", back_populates="document", cascade="all, delete-orphan")

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session as SyncSession
-from sqlalchemy import delete, text
+from sqlalchemy import delete, text, select
 from app.models import Chunk, Document
 
 class ChunkRepository:
@@ -17,24 +17,33 @@ class ChunkRepository:
 
     def find_relevant_chunks_sync(self, query_embedding: list[float], top_k: int = 5) -> list[Chunk]:
         """
-        Finds the top_k most relevant chunks using cosine similarity.
-        """
+        Finds the most relevant chunks using vector similarity.
 
+        Strategy: Use raw SQL for fast vector search to get IDs only,
+        then fetch via ORM to get properly-attached objects that can be used in relationships.
+        """
+ 
         stmt = text("""
-            SELECT id, document_id, chunk_text, chunk_metadata, embedding
+            SELECT id
             FROM chunks
-            ORDER BY embedding <=> :query_embedding
+            ORDER BY embedding <=> CAST(:query_embedding AS vector)
             LIMIT :top_k
         """)
-        
+
         result = self.session.execute(
             stmt,
-            {"query_embedding": str(query_embedding), "top_k": top_k}
+            {"query_embedding": query_embedding.tolist() if hasattr(query_embedding, 'tolist') else query_embedding, "top_k": top_k}
         )
-        
-        chunks = []
-        for row in result.mappings():
-            chunks.append(Chunk(**row))
-            
-        return chunks
+
+        chunk_ids = [row[0] for row in result]
+
+        if not chunk_ids:
+            return []
+
+        chunks = self.session.execute(
+            select(Chunk).where(Chunk.id.in_(chunk_ids))
+        ).scalars().all()
+
+        chunks_dict = {chunk.id: chunk for chunk in chunks}
+        return [chunks_dict[chunk_id] for chunk_id in chunk_ids if chunk_id in chunks_dict]
 

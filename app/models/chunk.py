@@ -4,6 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from pgvector.sqlalchemy import Vector
 from .base import Base
+from .cached_query import cached_query_chunks_link
 
 class Chunk(Base):
     __tablename__= "chunks"
@@ -14,3 +15,8 @@ class Chunk(Base):
     chunk_metadata: Mapped[dict | None] = mapped_column(JSONB)
     embedding: Mapped[list[float]] = mapped_column(Vector(384), nullable=False)
     document = relationship("Document", back_populates="chunks")
+
+    cached_queries: Mapped[list["CachedQuery"]] = relationship(
+        secondary=cached_query_chunks_link,
+        back_populates="source_chunks"
+    )

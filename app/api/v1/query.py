@@ -3,6 +3,7 @@ from app import limiter
 from sqlalchemy.orm import Session as SyncSession
 
 from app.core.security import get_api_key
+from app.repositories.cached_query_repository import CachedQueryRepository
 from app.schemas.query import QueryRequest, QueryResponse
 from app.services.query_service import QueryService
 from app.repositories.chunk_repository import ChunkRepository
@@ -29,7 +30,8 @@ def query_knowledgebase(
     """
 
     chunk_repo = ChunkRepository(db)
-    service = QueryService(chunk_repo)
+    cached_query_repo = CachedQueryRepository(db) 
+    service = QueryService(chunk_repo, cached_query_repo)
     
     response = service.answer_question(query_request)
     
