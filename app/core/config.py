@@ -33,12 +33,10 @@ class Settings(BaseSettings):
     os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
     os.makedirs(MODEL_CACHE_DIR, exist_ok=True)
 
-    DATABASE_URL: str = os.getenv("DATABASE_URL","sqlite+aiosqlite:///./docuquery.db")
-
     @property
     def DATABASE_URL(self) -> str:
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
-    
+
     @property
     def CELERY_BROKER_URL(self) -> str:
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
@@ -46,8 +44,6 @@ class Settings(BaseSettings):
     @property
     def CELERY_RESULT_BACKEND(self) -> str:
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
-
-    TEST_DATABASE_URL: str = os.getenv("TEST_DATABASE_URL","sqlite+aiosqlite:///./docuquery.db")
 
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "default_key")
 
