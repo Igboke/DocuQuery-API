@@ -59,8 +59,10 @@ async def test_client(test_engine) -> AsyncGenerator[AsyncClient, None]:
 
     app.dependency_overrides[get_uow] = override_get_uow
 
+    headers = {"X-API-KEY": settings.API_KEY}
+    
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
+    async with AsyncClient(transport=transport, base_url="http://test", headers=headers) as client:
         yield client
 
     app.dependency_overrides.clear()
@@ -84,8 +86,10 @@ def test_client_sync(test_engine) -> Generator[Client, None, None]:
     from app.core.db_sync import get_sync_db
     app.dependency_overrides[get_sync_db] = override_get_sync_db
 
+    headers = {"X-API-KEY": settings.API_KEY}
+    
     from fastapi.testclient import TestClient
-    with TestClient(app) as client:
+    with TestClient(app, headers=headers) as client:
         yield client
 
     app.dependency_overrides.clear()

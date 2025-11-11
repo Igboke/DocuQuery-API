@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BASE_URL = "http://127.0.0.1:9000"
+BASE_URL = "http://127.0.0.1:8000"
 UPLOAD_ENDPOINT = "/api/v1/documents/upload"
 STATUS_ENDPOINT = "/api/v1/documents/{job_id}/status"
 FILE_TO_UPLOAD = "test_data/sample.zip"
