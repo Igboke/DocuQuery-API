@@ -15,7 +15,7 @@ async def test_engine():
     """
     Creates a test database engine for each test.
     """
-    engine = create_async_engine(settings.TEST_DATABASE_URL, echo=False)
+    engine = create_async_engine(settings.DATABASE_URL, echo=False)
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
