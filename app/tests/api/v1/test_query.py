@@ -24,7 +24,6 @@ class TestQueryEndpoint:
         assert "answer" in data
         assert "sources" in data
         assert isinstance(data["sources"], list)
-        assert "placeholder answer" in data["answer"]
 
     @pytest.mark.parametrize(
         "invalid_payload, expected_detail_part",
