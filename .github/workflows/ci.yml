@@ -135,7 +135,7 @@ jobs:
     
     - name: Run tests
       run: |
-        pytest -v --tb=short
+        python -m pytest -v --tb=short
     
     - name: Upload API logs on failure
       if: failure()
