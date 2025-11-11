@@ -2,10 +2,10 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ "*" ]  # Run on all branches
+    branches: [ "*" ]
   pull_request:
     branches: [ "*" ]
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
 
 jobs:
   test:
