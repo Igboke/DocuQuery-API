@@ -210,3 +210,7 @@ design_docs/
 
 # Model cache directory
 model_cache/
+
+models/
+
+*.lock

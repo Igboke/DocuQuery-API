@@ -38,8 +38,8 @@ celery = Celery(__name__)
 celery.config_from_object(settings, namespace='CELERY')
 
 TEXT_SPLITTER = RecursiveCharacterTextSplitter(
-chunk_size=500,
-chunk_overlap=50,
+chunk_size=2000,
+chunk_overlap=200,
 length_function=len,
 )
 
@@ -82,6 +82,8 @@ def dispatch_processing_task(document_id: str):
 def unpack_zip_task(document_id: str):
     """
     The specialist for unpacking zip files.
+    Extracts files to a persistent temporary location and passes file paths to ingest tasks
+    to avoid serializing large content in Celery messages.
     """
     logger.info(f"[UNPACKER] Received job for document_id: {document_id}. Starting to unpack...")
 
@@ -99,40 +101,54 @@ def unpack_zip_task(document_id: str):
         db.commit() 
 
         file_path = f"./uploads/{document.id}.zip"
+        
+
+        temp_extract_dir = f"./uploads/temp_{document_id}"
+        os.makedirs(temp_extract_dir, exist_ok=True)
+        
         ingest_tasks = []
         try:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                with zipfile.ZipFile(file_path, 'r') as zip_ref:
-                    zip_ref.extractall(temp_dir)
-                
-                logger.info(f"[UNPACKER] Fanning out tasks for files in {document.filename}")
-                for filename in os.listdir(temp_dir):
-                    if filename.endswith('.md'):
-                        full_path = os.path.join(temp_dir, filename)
-                        with open(full_path, 'r', encoding='utf-8') as f:
-                            content = f.read()
-                        
-                        ingest_tasks.append(ingest_file_task.s(document_id, content, filename))
+            with zipfile.ZipFile(file_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_extract_dir)
+            
+            logger.info(f"[UNPACKER] Fanning out tasks for files in {document.filename}")
+            for filename in os.listdir(temp_extract_dir):
+                if filename.endswith('.md'):
+                    full_path = os.path.join(temp_extract_dir, filename)
+
+                    ingest_tasks.append(ingest_file_from_path_task.s(document_id, full_path, filename))
+                    
+            logger.info(f"[UNPACKER] Created {len(ingest_tasks)} ingest tasks for files in temp directory: {temp_extract_dir}")
+            
         except Exception as e:
             logger.exception("[UNPACKER] Failed to unpack or prepare tasks.")
             doc_repo.update_status_sync(document, IngestionStatus.FAILED, str(e))
+
+            if os.path.exists(temp_extract_dir):
+                import shutil
+                shutil.rmtree(temp_extract_dir, ignore_errors=True)
             return
 
         if not ingest_tasks:
             logger.warning(f"[UNPACKER] No .md files found in {document.filename}. Marking as complete.")
             doc_repo.update_status_sync(document, IngestionStatus.COMPLETED)
+
+            if os.path.exists(temp_extract_dir):
+                import shutil
+                shutil.rmtree(temp_extract_dir, ignore_errors=True)
             return
 
-        callback = finalize_processing_task.s(document_id = document_id)
+        callback = finalize_processing_task.s(document_id=document_id, temp_dir=temp_extract_dir)
         chord(ingest_tasks)(callback)
 
         logger.info(f"[UNPACKER] Dispatched {len(ingest_tasks)} ingest jobs with a finalization callback.")
 
 @celery.task
-def finalize_processing_task(results: list, document_id: str):
+def finalize_processing_task(results: list, document_id: str, temp_dir: str = None):
     """
     The callback task that inspects the results of all ingest tasks
     and sets the final status for the parent Document.
+    Also cleans up the temporary directory used for extracted files.
     """
     logger.info(f"[FINALIZER] All ingest jobs finished for document {document_id}. Analyzing results...")
     
@@ -157,6 +173,79 @@ def finalize_processing_task(results: list, document_id: str):
         else:
             logger.info(f"[FINALIZER] All {len(results)} files ingested successfully for document {document_id}. Setting status to COMPLETED.")
             repo.update_status_sync(document, IngestionStatus.COMPLETED)
+    
+    if temp_dir and os.path.exists(temp_dir):
+        try:
+            import shutil
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            logger.info(f"[FINALIZER] Cleaned up temporary directory: {temp_dir}")
+        except Exception as e:
+            logger.warning(f"[FINALIZER] Failed to clean up temp directory {temp_dir}: {e}")
+
+@celery.task
+def ingest_file_from_path_task(document_id: str, file_path: str, original_filename: str):
+    """
+    The specialist for ingesting a single file from a file path.
+    Reads content from disk to avoid large message serialization.
+    Uses batched processing to prevent out-of-memory errors.
+    """
+    logger.info(f"[INGESTOR] Ingesting file from '{file_path}' (original: '{original_filename}') for document {document_id}.")
+    
+    BATCH_SIZE = 500
+    
+    try:
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+            
+        with open(file_path, 'r', encoding='utf-8') as f:
+            text = f.read()
+
+        chunks_text = TEXT_SPLITTER.split_text(text)
+        total_chunks = len(chunks_text)
+        logger.info(f"[INGESTOR] Split '{original_filename}' into {total_chunks} chunks. Processing in batches of {BATCH_SIZE}...")
+
+        embedding_model = get_embedding_model()
+        total_saved = 0
+        
+        for batch_start in range(0, total_chunks, BATCH_SIZE):
+            batch_end = min(batch_start + BATCH_SIZE, total_chunks)
+            batch_chunks = chunks_text[batch_start:batch_end]
+            
+            logger.info(f"[INGESTOR] Processing batch {batch_start}-{batch_end} of {total_chunks} chunks...")
+            
+            
+            batch_embeddings = list(embedding_model.embed(batch_chunks))
+            
+            
+            chunks_to_create = []
+            for i, text_chunk in enumerate(batch_chunks):
+                chunk = Chunk(
+                    document_id=document_id,
+                    chunk_text=text_chunk,
+                    embedding=batch_embeddings[i].tolist(),
+                    chunk_metadata={
+                        "source_filename": original_filename,
+                        "chunk_index": batch_start + i
+                    }
+                )
+                chunks_to_create.append(chunk)
+            
+            
+            with get_sync_db() as db:
+                db.bulk_save_objects(chunks_to_create)
+                db.commit()
+            
+            total_saved += len(chunks_to_create)
+            logger.info(f"[INGESTOR] Saved batch to database. Progress: {total_saved}/{total_chunks} chunks ({total_saved*100//total_chunks}%)")
+        
+        logger.info(f"[INGESTOR] Successfully saved all {total_saved} chunks to the database.")
+
+        return {"status": "SUCCESS", "filename": original_filename}
+
+    except Exception as e:
+        logger.exception(f"[INGESTOR] Failed to ingest file '{original_filename}' from path '{file_path}'.", exc_info=True)
+
+        return {"status": "FAILED", "filename": original_filename, "error": str(e)}
 
 @celery.task
 def ingest_file_task(document_id: str, file_content: str, original_filename: str):
