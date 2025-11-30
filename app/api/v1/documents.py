@@ -28,11 +28,10 @@ async def upload_documents(
     """
     Accepts a file for asynchronous processing.
     """
-    file_extension = file.filename.split(".")[-1] if "." in file.filename else ""
-    if file_extension not in settings.ALLOWED_FILE_EXTENSIONS:
-            raise HTTPException(
+    if file.content_type not in settings.ALLOWED_MIME_TYPES:
+        raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type. Allowed types are: {', '.join(settings.ALLOWED_FILE_EXTENSIONS)}"
+            detail=f"Invalid file type. Allowed MIME types are: {', '.join(settings.ALLOWED_MIME_TYPES)}"
         )
     repo = DocumentRepository(session)
     service = DocumentService(repo)

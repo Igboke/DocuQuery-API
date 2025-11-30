@@ -37,11 +37,6 @@ def create_app()->FastAPI:
     app.include_router(api_router_v1)
     app.include_router(health_check.router,prefix="/health",tags=["Health"])
     app.add_route("/metrics", metrics)
-
-
-    @app.get("/health")
-    def health_check_():
-        return {'message':'i am alive'}
     
     return app
 

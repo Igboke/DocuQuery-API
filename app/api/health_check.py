@@ -8,18 +8,12 @@ router = APIRouter()
 
 @router.get("/ping",summary="Check Network Connection")
 async def ping():
-    """
-    CHeck Network connection
-    """
     return {"status":"ok"}
 
 @router.get("/db",summary="Check the database connection")
 async def check_db_connection(
     session:AsyncSession=Depends(get_uow)
 ):
-    """
-    Check db connection
-    """
     try:
         await session.execute(text("SELECT 1"))
         return {"db_status":"ok"}

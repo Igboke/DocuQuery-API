@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
 
     ALLOWED_FILE_EXTENSIONS: list[str] = ["zip"]
+    
+    ALLOWED_MIME_TYPES: set[str] = {
+        "application/zip",
+        "application/x-zip-compressed",
+    }
 
     UPLOAD_DIRECTORY: str = "./uploads"
 
