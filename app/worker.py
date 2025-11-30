@@ -3,10 +3,9 @@ import os
 import tempfile
 import zipfile
 from celery import Celery, chord
-from app.core.config import settings
+from app.core.config import settings, get_embedding_model
 from app.core.db_sync import get_sync_db
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from fastembed import TextEmbedding
 from app.models import Chunk
 from app.models.document import IngestionStatus
 from app.repositories.chunk_repository import ChunkRepository
@@ -15,23 +14,6 @@ from app.repositories.document_repo import DocumentRepository
 logger = logging.getLogger(__name__)
 
 os.environ['HF_HUB_OFFLINE'] = '1'
-
-_embedding_model = None
-
-def get_embedding_model():
-    """
-    Lazy initialization of the embedding model.
-    This ensures the model is loaded once per worker process.
-    """
-    global _embedding_model
-    if _embedding_model is None:
-        logger.info(f"[WORKER] Initializing embedding model from cache: {settings.MODEL_CACHE_DIR}")
-        _embedding_model = TextEmbedding(
-            model_name=settings.MODEL_NAME,
-            cache_dir=settings.MODEL_CACHE_DIR
-        )
-        logger.info("[WORKER] Embedding model initialized successfully.")
-    return _embedding_model
 
 celery = Celery(__name__)
 

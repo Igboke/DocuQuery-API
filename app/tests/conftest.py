@@ -5,7 +5,7 @@ from httpx._transports.asgi import ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from app.main import app
-from app.core.database import get_uow
+from app.core.database import get_session
 from app.models.base import Base
 from app.core.config import settings
 
@@ -42,7 +42,7 @@ async def test_client(test_engine) -> AsyncGenerator[AsyncClient, None]:
         expire_on_commit=False
     )
 
-    async def override_get_uow() -> AsyncGenerator[AsyncSession, None]:
+    async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
         """
         A dependency override that provides a session to the test database.
         Each request gets a fresh session that will be rolled back after the test.
@@ -57,7 +57,7 @@ async def test_client(test_engine) -> AsyncGenerator[AsyncClient, None]:
             finally:
                 await session.close()
 
-    app.dependency_overrides[get_uow] = override_get_uow
+    app.dependency_overrides[get_session] = override_get_session
 
     headers = {"X-API-KEY": settings.API_KEY}
     

@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Request, UploadFile, File, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app import limiter
 import logging
-from app.core.database import get_uow
+from app.core.database import get_session
 from app.core.config import settings
 from app.core.security import get_api_key
 from app.repositories.document_repo import DocumentRepository
@@ -23,7 +23,7 @@ router = APIRouter()
 async def upload_documents(
     request: Request,
     file: UploadFile = File(..., description="A file for the knowledge base."),
-    session: AsyncSession = Depends(get_uow)
+    session: AsyncSession = Depends(get_session)
 ):
     """
     Accepts a file for asynchronous processing.
@@ -55,7 +55,7 @@ async def upload_documents(
 )
 async def get_job_status(
     job_id: uuid.UUID,
-    session: AsyncSession = Depends(get_uow)
+    session: AsyncSession = Depends(get_session)
 ):
     """
     Retrieves the current status of a document processing job.

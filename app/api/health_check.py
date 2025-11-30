@@ -2,7 +2,7 @@ from fastapi import APIRouter,Depends,HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import OperationalError
 from sqlalchemy import text
-from app.core.database import get_uow
+from app.core.database import get_session
 
 router = APIRouter()
 
@@ -12,7 +12,7 @@ async def ping():
 
 @router.get("/db",summary="Check the database connection")
 async def check_db_connection(
-    session:AsyncSession=Depends(get_uow)
+    session: AsyncSession = Depends(get_session)
 ):
     try:
         await session.execute(text("SELECT 1"))
