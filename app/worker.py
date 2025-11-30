@@ -52,7 +52,7 @@ def dispatch_processing_task(document_id: str):
         elif document.filename.endswith('.md'):
             logger.info(f"[DISPATCHER] Routing '{document.filename}' directly to the Ingestor worker.")
             file_path = f"./uploads/{document.id}.md"
-            ingest_file_task.delay(document_id, file_path, document.filename)
+            ingest_file_from_path_task.delay(document_id, file_path, document.filename)
         
         else:
             error_msg = f"Unsupported file type: {document.filename}"
@@ -136,7 +136,7 @@ def finalize_processing_task(results: list, document_id: str, temp_dir: str = No
     
     failed_files = []
     for result in results:
-        if result and result.get("status") == "FAILED":
+        if result and result.get("status") == IngestionStatus.FAILED:
             failed_files.append(result)
 
     with get_sync_db() as db:
@@ -226,49 +226,5 @@ def ingest_file_from_path_task(document_id: str, file_path: str, original_filena
 
     except Exception as e:
         logger.exception(f"[INGESTOR] Failed to ingest file '{original_filename}' from path '{file_path}'.", exc_info=True)
-
-        return {"status": "FAILED", "filename": original_filename, "error": str(e)}
-
-@celery.task
-def ingest_file_task(document_id: str, file_content: str, original_filename: str):
-    """
-    The specialist for ingesting a single file.
-    Receives the file's text content directly.
-    """
-    logger.info(f"[INGESTOR] Ingesting content from '{original_filename}' for document {document_id}.")
-    
-    try:
-        text = file_content
-
-        chunks_text = TEXT_SPLITTER.split_text(text)
-        logger.info(f"[INGESTOR] Split '{original_filename}' into {len(chunks_text)} chunks.")
-
-        embedding_model = get_embedding_model()
-        embeddings = list(embedding_model.embed(chunks_text))
-        logger.info(f"[INGESTOR] Created {len(embeddings)} embeddings.")
-
-        chunks_to_create = []
-        for i, text_chunk in enumerate(chunks_text):
-            chunk = Chunk(
-                document_id=document_id,
-                chunk_text=text_chunk,
-                embedding=embeddings[i].tolist(),
-                chunk_metadata={
-                    "source_filename": original_filename,
-                    "chunk_index": i
-                }
-            )
-            chunks_to_create.append(chunk)
-
-        with get_sync_db() as db:
-            db.bulk_save_objects(chunks_to_create)
-            db.commit()
-        
-        logger.info(f"[INGESTOR] Successfully saved {len(chunks_to_create)} chunks to the database.")
-
-        return {"status": "SUCCESS", "filename": original_filename}
-
-    except Exception as e:
-        logger.exception(f"[INGESTOR] Failed to ingest file '{original_filename}'.", exc_info=True)
 
         return {"status": "FAILED", "filename": original_filename, "error": str(e)}
