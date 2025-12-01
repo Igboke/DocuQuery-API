@@ -50,3 +50,9 @@ class DocumentService:
         dispatch_processing_task.delay(str(document.id))
 
         return document
+
+    async def get_document_by_id(self, document_id) -> Document | None:
+        """
+        Retrieves a document by its ID.
+        """
+        return await self.repository.get_by_id(document_id)
