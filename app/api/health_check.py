@@ -1,8 +1,7 @@
-from fastapi import APIRouter,Depends,HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import OperationalError
-from sqlalchemy import text
-from app.core.database import get_session
+from app.services.health_service import HealthService
+from app.dependencies import get_health_service
 
 router = APIRouter()
 
@@ -12,11 +11,10 @@ async def ping():
 
 @router.get("/db",summary="Check the database connection")
 async def check_db_connection(
-    session: AsyncSession = Depends(get_session)
+    service: HealthService = Depends(get_health_service)
 ):
     try:
-        await session.execute(text("SELECT 1"))
-        return {"db_status":"ok"}
+        return await service.check_db_connection()
     except OperationalError as e:
         raise HTTPException(
             status_code=503,

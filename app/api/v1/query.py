@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, status, Request
-from app import limiter
+from app.dependencies import limiter
 
 from app.core.security import get_api_key
 from app.schemas.query import QueryRequest, QueryResponse

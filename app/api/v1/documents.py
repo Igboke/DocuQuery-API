@@ -1,6 +1,6 @@
 import uuid
 from fastapi import APIRouter, Depends, Request, UploadFile, File, HTTPException, status
-from app import limiter
+from app.dependencies import limiter
 import logging
 from app.core.config import settings
 from app.core.security import get_api_key

@@ -10,7 +10,7 @@ from app.api import health_check
 from app.api.v1 import documents as documents_v1
 from app.api.v1 import query as query_v1
 from starlette_prometheus import PrometheusMiddleware, metrics
-from app import limiter
+from app.dependencies import limiter
 
 def create_app()->FastAPI:
     """
