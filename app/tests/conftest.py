@@ -68,6 +68,47 @@ async def test_client(test_engine) -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides.clear()
 
 @pytest.fixture(scope="function")
+def zip_file_fixture(tmp_path):
+    """
+    Creates a temporary zip file with sample markdown content for testing.
+    Returns the path to the created zip file.
+    """
+    import zipfile
+    import textwrap
+    
+    files_to_create = {
+        "auth_service.md": """
+        # Authentication Service Documentation
+        ## Overview
+        The Authentication Service is responsible for user login, registration, and token management.
+        It uses JWT for secure token generation.
+        """,
+        "api_gateway.md": """
+        # API Gateway
+        ## Routing
+        The gateway routes incoming traffic based on the request path.
+        - `/api/v1/query` is routed to the Query Service.
+        - `/api/v1/documents` is routed to the Ingestion Service.
+        """,
+        "database_schema.md": """
+        # Database Schema
+        ## Tables
+        - **documents**: Tracks the status of ingested files.
+        - **chunks**: Stores the vector data and text snippets.
+        """
+    }
+    
+    zip_path = tmp_path / "sample.zip"
+    
+    with zipfile.ZipFile(zip_path, 'w') as zipf:
+        for filename, content in files_to_create.items():
+            file_path = tmp_path / filename
+            file_path.write_text(textwrap.dedent(content).strip(), encoding="utf-8")
+            zipf.write(file_path, arcname=filename)
+            
+    return zip_path
+
+@pytest.fixture(scope="function")
 def test_client_sync(test_engine) -> Generator[Client, None, None]:
     """
     A fixture that provides a SYNCHRONOUS test client for testing 'def' endpoints.
