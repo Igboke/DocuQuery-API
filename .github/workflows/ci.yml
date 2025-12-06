@@ -1,0 +1,162 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: 
+      - '**'
+  pull_request:
+    branches: 
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: docuquery_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    
+    - name: Install uv
+      run: |
+        pip install --upgrade pip
+        pip install uv
+    
+    - name: Cache uv dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/uv
+        key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
+    
+    - name: Cache model files
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/huggingface
+          ./model_cache
+        key: ${{ runner.os }}-models-${{ hashFiles('pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-models-
+    
+    - name: Install dependencies
+      run: |
+        uv pip install --system ".[test]"
+    
+    - name: Set up environment variables
+      run: |
+        cat > .env <<EOF
+        DB_USER=postgres
+        DB_PASSWORD=postgres
+        DB_HOST=localhost
+        DB_PORT=5432
+        DB_NAME=docuquery_db
+        REDIS_HOST=localhost
+        REDIS_PORT=6379
+        API_KEY=test-api-key-for-ci
+        GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY || 'test-google-api-key' }}
+        EOF
+    
+    - name: Wait for PostgreSQL
+      run: |
+        for i in {1..30}; do
+          if pg_isready -h localhost -p 5432 -U postgres; then
+            echo "PostgreSQL is ready"
+            break
+          fi
+          echo "Waiting for PostgreSQL..."
+          sleep 1
+        done
+    
+    - name: Enable pgvector extension
+      env:
+        PGPASSWORD: postgres
+      run: |
+        psql -h localhost -p 5432 -U postgres -d docuquery_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
+    
+    - name: Run database migrations
+      run: |
+        alembic upgrade head
+    
+    - name: Start API server in background
+      run: |
+        nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 > api.log 2>&1 &
+        echo $! > api.pid
+        sleep 5  # Wait for server to start
+    
+    - name: Start Celery worker in background
+      run: |
+        nohup celery -A app.worker.celery worker --loglevel=info > worker.log 2>&1 &
+        echo $! > worker.pid
+        sleep 5  # Wait for worker to start
+    
+    - name: Check API health
+      run: |
+        for i in {1..30}; do
+          if curl -f http://localhost:8000/docs > /dev/null 2>&1; then
+            echo "API is ready"
+            break
+          fi
+          echo "Waiting for API..."
+          sleep 1
+        done
+        curl -f http://localhost:8000/docs || (echo "API failed to start" && cat api.log && exit 1)
+    
+    - name: Run tests
+      run: |
+        python -m pytest -v --tb=short
+    
+    - name: Upload API logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: api-logs
+        path: api.log
+    
+    - name: Upload worker logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: worker-logs
+        path: worker.log
+    
+    - name: Stop services
+      if: always()
+      run: |
+        if [ -f api.pid ]; then
+          kill $(cat api.pid) || true
+        fi
+        if [ -f worker.pid ]; then
+          kill $(cat worker.pid) || true
+        fi
